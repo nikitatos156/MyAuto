@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/myauto_w_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/myauto_widget_bg"
+    android:orientation="vertical"
+    android:paddingLeft="14dp"
+    android:paddingTop="12dp"
+    android:paddingRight="12dp"
+    android:paddingBottom="10dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="My Auto"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/myauto_w_docs"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/myauto_widget_btn"
+            android:paddingLeft="12dp"
+            android:paddingTop="5dp"
+            android:paddingRight="12dp"
+            android:paddingBottom="5dp"
+            android:text="Документы"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <TextView android:id="@+id/myauto_w_l1" style="@style/MyAutoWidgetLine" />
+    <TextView android:id="@+id/myauto_w_l2" style="@style/MyAutoWidgetLine" />
+    <TextView android:id="@+id/myauto_w_l3" style="@style/MyAutoWidgetLine" />
+    <TextView android:id="@+id/myauto_w_l4" style="@style/MyAutoWidgetLine" />
+    <TextView android:id="@+id/myauto_w_l5" style="@style/MyAutoWidgetLine" />
+    <TextView android:id="@+id/myauto_w_l6" style="@style/MyAutoWidgetLine" />
+    <TextView android:id="@+id/myauto_w_l7" style="@style/MyAutoWidgetLine" />
+
+    <TextView
+        android:id="@+id/myauto_w_updated"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textColor="#80FFFFFF"
+        android:textSize="10sp" />
+</LinearLayout>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, viewport-fit=cover" />
+    <title>My Auto</title>
+    <meta name="description" content="Учёт заправок, ТО, документов и штрафов для своих машин" />
+    <meta name="theme-color" content="#F4F3EF" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="My Auto" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="%CSS%" />
+    <style>
+      #splash { position: fixed; inset: 0; display: grid; place-items: center; background: #f4f3ef; z-index: 1000; }
+      #splash img { width: 88px; height: 88px; border-radius: 22px; }
+      @media (prefers-color-scheme: dark) { #splash { background: #0e0f12; } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="splash"><img src="icons/icon-192.png" alt="" /></div>
+    <script type="module" src="%JS%"></script>
+  </body>
+</html>

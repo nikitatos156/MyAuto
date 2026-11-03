@@ -1,0 +1,24 @@
+{
+  "appId": "ru.myauto.app",
+  "appName": "My Auto",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0E0F12"
+  },
+  "plugins": {
+    "CapacitorUpdater": {
+      "autoUpdate": false,
+      "statsUrl": "",
+      "resetWhenUpdate": true,
+      "appReadyTimeout": 15000
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_myauto",
+      "iconColor": "#E8590C"
+    },
+    "SystemBars": {
+      "insetsHandling": "css"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+/node_modules/
+/dist/
+/android/
+*.apk
+*.zip
+.DS_Store
+android-signing/
+*.jks
+*.keystore

@@ -6,11 +6,30 @@ import { planStatus, type PlanOverrides } from './maintenance';
 
 export const isAdBlue = (t?: string) => !!t && /adblue/i.test(t);
 
+/**
+ * Текущий пробег — наибольший из ручного значения, заправок и ТО.
+ * Ручная правка главнее записей, сохранённых до неё: так исправляется опечатка
+ * (ввели 130 000 вместо 125 817 — вводим правильное значение, и оно сразу действует).
+ */
 export function currentMileage(car: Car, fuel: FuelEntry[], services: ServiceEntry[]): number | undefined {
   let m = car.mileage;
-  for (const f of fuel) if (f.carId === car.id && f.mileage && (!m || f.mileage > m)) m = f.mileage;
-  for (const s of services) if (s.carId === car.id && s.mileage && (!m || s.mileage > m)) m = s.mileage;
+  const fixedAt = car.mileage && car.mileageDate ? car.mileageDate : 0;
+  const take = (x: number | undefined, savedAt: number) => {
+    if (!x) return;
+    if (fixedAt && savedAt <= fixedAt && x > car.mileage!) return; // запись старше ручной правки
+    if (!m || x > m) m = x;
+  };
+  for (const f of fuel) if (f.carId === car.id) take(f.mileage, f.updatedAt || f.createdAt || f.date);
+  for (const s of services) if (s.carId === car.id) take(s.mileage, s.updatedAt || s.createdAt || s.date);
   return m;
+}
+
+/** Записи с пробегом больше заданного — чтобы предложить исправить опечатку. */
+export function recordsAbove(car: Car, fuel: FuelEntry[], services: ServiceEntry[], value: number) {
+  return [
+    ...fuel.filter((f) => f.carId === car.id && (f.mileage || 0) > value).map((f) => ({ kind: 'fuel' as const, id: f.id, date: f.date, mileage: f.mileage! })),
+    ...services.filter((s) => s.carId === car.id && (s.mileage || 0) > value).map((s) => ({ kind: 'service' as const, id: s.id, date: s.date, mileage: s.mileage! })),
+  ].sort((a, b) => b.mileage - a.mileage);
 }
 
 export const serviceTotal = (s: ServiceEntry) =>

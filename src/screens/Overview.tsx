@@ -3,7 +3,7 @@ import {
   LuBell, LuChevronRight, LuCopy, LuDisc3, LuIdCard, LuDatabaseBackup, LuFileText, LuFuel, LuGauge, LuPencil, LuPlus, LuSettings, LuSiren, LuTriangleAlert, LuWrench,
 } from 'react-icons/lu';
 import { getAll, getSetting, put, stamp, useQuery } from '../data/db';
-import { buildReminders, consumption, currentMileage, isAdBlue, nextService, serviceTotal } from '../data/logic';
+import { buildReminders, consumption, currentMileage, isAdBlue, nextService, recordsAbove, serviceTotal } from '../data/logic';
 import type { Car, DocEntry, Fine, FuelEntry, ServiceEntry, TireSet } from '../data/types';
 import { dateHuman, dateShort, km, money, num, parseNum, relDays } from '../lib/format';
 import { useApp } from '../state';
@@ -207,30 +207,35 @@ export default function Overview() {
         )}
       </Section>
 
-      <MileageSheet open={mileageOpen} onClose={() => setMileageOpen(false)} car={car} current={mileage} />
+      <MileageSheet open={mileageOpen} onClose={() => setMileageOpen(false)} car={car} current={mileage} fuel={data.fuel} services={data.services} />
     </div>
   );
 }
 
-function MileageSheet({ open, onClose, car, current }: { open: boolean; onClose: () => void; car: Car; current?: number }) {
+function MileageSheet({ open, onClose, car, current, fuel, services }: { open: boolean; onClose: () => void; car: Car; current?: number; fuel: FuelEntry[]; services: ServiceEntry[] }) {
   const [v, setV] = useState('');
   React.useEffect(() => {
     if (open) setV(current ? String(current) : '');
   }, [open, current]);
   const save = async () => {
-    const n = parseNum(v);
+    const n = Math.round(parseNum(v) || 0);
     if (!n) return toast('Введите пробег', 'danger');
-    if (current && n < current - 5) {
-      toast('Пробег меньше последнего записанного — проверьте значение', 'danger');
-      return;
-    }
-    await put('cars', stamp({ ...car, mileage: Math.round(n), mileageDate: Date.now() }));
-    toast('Пробег обновлён');
+    // меньше прежнего — значит, раньше ошиблись: просто принимаем новое значение
+    await put('cars', stamp({ ...car, mileage: n, mileageDate: Date.now() }));
     onClose();
+    // если опечатка была в заправке или ТО — предлагаем поправить и эту запись
+    const above = recordsAbove(car, fuel, services, n)[0];
+    if (above) {
+      const what = above.kind === 'fuel' ? 'заправке' : 'записи ТО';
+      toast(`Пробег обновлён. В ${what} от ${dateShort(above.date)} указано ${km(above.mileage)} — исправить?`, 'info', {
+        label: 'Открыть',
+        onClick: () => go(above.kind === 'fuel' ? `#/fuel/${above.id}` : `#/service/${above.id}`),
+      }, 8000);
+    } else toast('Пробег обновлён');
   };
   return (
     <Sheet open={open} onClose={onClose} title="Текущий пробег" footer={<Button variant="primary" block onClick={save}>Сохранить</Button>}>
-      <Field label={`${car.make} ${car.model}`} hint="Пробег также берётся из заправок и ТО — используется для расчёта следующего ТО.">
+      <Field label={`${car.make} ${car.model}`} hint="Новые заправки и ТО обновляют пробег сами. Ошиблись раньше — просто введите правильное значение.">
         <NumInput value={v} onChange={setV} suffix="км" decimals={false} autoFocus />
       </Field>
     </Sheet>

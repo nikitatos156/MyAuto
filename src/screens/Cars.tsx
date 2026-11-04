@@ -156,6 +156,8 @@ export function CarForm({ id }: { id?: string }) {
         serviceIntervalMonths: parseNum(f.serviceIntervalMonths) || 12,
         codingPreset: f.codingPreset || undefined,
         mileage: parseNum(f.mileage),
+        // ручной пробег изменили — он главнее прежних записей (см. currentMileage)
+        mileageDate: parseNum(f.mileage) !== orig?.mileage ? Date.now() : orig?.mileageDate,
         notes: f.notes?.trim() || undefined,
       } as Car,
       !orig,

@@ -1,5 +1,5 @@
 // Резервные копии: выгрузка всех данных (вместе с фото чеков) в один JSON-файл и восстановление.
-import { ALL_STORES, clear, getAll, getSetting, putMany, setSetting } from '../data/db';
+import { ALL_STORES, getAll, getSetting, setSetting, writeAll } from '../data/db';
 import type { Attachment, StoreName } from '../data/types';
 import { APP_VERSION } from '../env';
 import { pad } from './format';
@@ -65,20 +65,28 @@ export function parseBackup(text: string): BackupFile {
 export async function restoreBackup(file: BackupFile, mode: 'replace' | 'merge' = 'replace') {
   // защита этого устройства (PIN, биометрия) сохраняется как есть
   const keep = (await getAll<{ key: string; value: any }>('settings')).filter((r) => r.key === 'lock');
+  // сначала разбираем весь файл (фото из base64), и только потом одной транзакцией пишем в базу
+  const out: Partial<Record<StoreName, any[]>> = {};
   for (const name of ALL_STORES) {
     const rows = file.data[name];
     if (!Array.isArray(rows)) continue;
-    if (mode === 'replace') await clear(name as StoreName);
-    let list = name === 'settings' ? rows.filter((r: any) => r.key !== 'lock').concat(keep) : rows;
-    if (name === 'attachments') {
-      list = rows.map((a: any) => {
+    if (name === 'settings') out[name] = rows.filter((r: any) => r?.key && r.key !== 'lock').concat(keep).concat([{ key: 'seeded', value: true }]);
+    else if (name === 'attachments')
+      out[name] = rows.map((a: any) => {
         const { data, ...rest } = a;
-        return { ...rest, blob: base64ToBlob(data, a.type) } as Attachment;
+        try {
+          return { ...rest, blob: base64ToBlob(data, a.type) } as Attachment;
+        } catch {
+          throw new Error(`Файл копии повреждён: не удалось прочитать фото «${a.name || a.id}». Данные на телефоне не изменены`);
+        }
       });
-    }
-    await putMany(name as StoreName, list);
+    else out[name] = rows.filter((r: any) => r && r.id);
   }
-  await setSetting('seeded', true);
+  if (!out.cars) throw new Error('В файле нет данных о машинах');
+  await writeAll(out, mode === 'replace');
+  if (!out.settings) await setSetting('seeded', true);
+  // восстановленная копия — и есть последняя известная копия (иначе сразу появится напоминание «копий не было»)
+  if (file.createdAt && file.createdAt > (await getSetting<number>('lastBackupAt', 0))) await setSetting('lastBackupAt', file.createdAt);
 }
 
 /**

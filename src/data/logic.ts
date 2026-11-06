@@ -320,7 +320,11 @@ export function buildReminders(args: {
     const m = currentMileage(car, fuel, services);
     for (const p of planStatus(car, services, m, args.planOverrides?.[car.id])) {
       if (p.off || p.item.key === 'oil' || !p.lastDate || (p.state !== 'overdue' && p.state !== 'soon')) continue;
-      const when = [p.kmLeft !== undefined ? (p.kmLeft < 0 ? `просрочено на ${km(-p.kmLeft)}` : `через ${km(p.kmLeft)}`) : '', p.dueDate ? ((p.daysLeft ?? 0) < 0 ? `просрочено с ${dateShort(p.dueDate)}` : `до ${dateShort(p.dueDate)}`) : ''].filter(Boolean).join(' · ');
+      const kmPart = p.kmLeft !== undefined ? (p.kmLeft < 0 ? `просрочено на ${km(-p.kmLeft)}` : `через ${km(p.kmLeft)}`) : '';
+      const dateOver = !!p.dueDate && (p.daysLeft ?? 0) < 0;
+      const datePart = p.dueDate ? (dateOver ? `срок вышел ${dateShort(p.dueDate)}` : `до ${dateShort(p.dueDate)}`) : '';
+      // просрочено по времени, а по пробегу ещё нет — сначала главное: срок вышел
+      const when = (dateOver && !(p.kmLeft !== undefined && p.kmLeft < 0) ? [datePart, kmPart && 'по пробегу ' + kmPart] : [kmPart, datePart]).filter(Boolean).join(' · ');
       out.push({
         id: `plan:${car.id}:${p.item.key}`,
         kind: 'service',

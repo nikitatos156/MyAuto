@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { LuCar, LuPlus, LuTrash2 } from 'react-icons/lu';
-import { del, get, getAll, put, setSetting, stamp, uid } from '../data/db';
+import { del, delMany, get, getAll, put, setSetting, stamp, uid } from '../data/db';
 import { CODING_PRESETS, detectCodingPreset, presetOptions } from '../data/codings';
 import { DIESEL_TYPES, PETROL_TYPES } from '../data/seed';
 import type { Car, DocEntry, FuelKind } from '../data/types';
@@ -187,13 +187,12 @@ export function CarForm({ id }: { id?: string }) {
   const remove = async () => {
     if (!orig) return;
     if (!(await confirmDialog(`Удалить ${orig.make} ${orig.model}?`, { text: 'Будут удалены все заправки, ТО, документы, штрафы и кодировки этой машины. Сначала можно сделать резервную копию в настройках.', danger: true, ok: 'Удалить всё' }))) return;
-    for (const store of ['fuel', 'services', 'documents', 'fines', 'codings'] as const) {
-      const rows = await getAll<any>(store);
-      for (const r of rows.filter((x) => x.carId === orig.id)) {
-        if (r.attachments?.length) await removeAttachments(r.attachments);
-        await del(store, r.id);
-      }
+    for (const store of ['fuel', 'services', 'documents', 'fines', 'codings', 'tires'] as const) {
+      const rows = (await getAll<any>(store)).filter((x) => x.carId === orig.id);
+      await removeAttachments(rows.flatMap((r) => r.attachments || []));
+      await delMany(store, rows.map((r) => r.id));
     }
+    await del('settings', 'plan:' + orig.id); // правки плана обслуживания этой машины
     await del('cars', orig.id);
     const rest = cars.filter((c) => c.id !== orig.id);
     if (rest[0]) await setSetting('currentCarId', rest[0].id);

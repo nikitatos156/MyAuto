@@ -14,9 +14,9 @@ export const money = (v?: number | null, cents = false) => {
   return (hasCents ? nf2.format(rounded) : nf0.format(Math.round(rounded))) + ' ₽';
 };
 
-export const km = (v?: number | null) => (v == null ? '—' : nf0.format(v) + ' км');
+export const km = (v?: number | null) => (v == null || isNaN(v) ? '—' : nf0.format(v) + ' км');
 
-export const liters = (v?: number | null) => (v == null ? '—' : nf2.format(v).replace(/,00$/, '') + ' л');
+export const liters = (v?: number | null) => (v == null || isNaN(v) ? '—' : nf2.format(v).replace(/,00$/, '') + ' л');
 
 const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 const monthsFull = [

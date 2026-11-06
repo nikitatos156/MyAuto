@@ -69,6 +69,7 @@ const result = await esbuild.build({
   logLevel: 'warning',
 });
 
+if (arg('meta')) fs.writeFileSync(arg('meta'), JSON.stringify(result.metafile)); // разбор состава: --meta meta.json
 const outputs = Object.keys(result.metafile.outputs);
 const js = outputs.find((o) => /main-.*\.js$/.test(o));
 const css = outputs.find((o) => /\.css$/.test(o));

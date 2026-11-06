@@ -41,6 +41,18 @@ async function boot() {
       await setSetting('askedNotifications', true);
     }
     refreshReminders();
+    // раз в день убираем фото из несохранённых форм — до автокопии, чтобы они в неё не попали
+    try {
+      const { cleanupAttachments } = await import('./lib/attachments');
+      const { setSetting } = await import('./data/db');
+      if (Date.now() - (await getSetting<number>('attachGcAt', 0)) > 24 * 3600 * 1000) {
+        const n = await cleanupAttachments();
+        await setSetting('attachGcAt', Date.now());
+        if (n) console.info(`Удалено неиспользуемых фото: ${n}`);
+      }
+    } catch (e) {
+      console.warn('cleanup', e);
+    }
     const r = await autoBackupIfDue().catch(() => 'skip');
     if (r === 'done') console.info('Автокопия сохранена');
   }, 2500);

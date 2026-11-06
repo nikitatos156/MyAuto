@@ -1,5 +1,5 @@
 // Чеки и фото документов: сжатие изображений и хранение в IndexedDB.
-import { del, get, put, uid } from '../data/db';
+import { delMany, get, getAll, put, sweep, uid } from '../data/db';
 import type { Attachment } from '../data/types';
 
 const MAX_SIDE = 1600;
@@ -60,12 +60,26 @@ export async function addAttachment(file: File): Promise<Attachment> {
 export const getAttachment = (id: string) => get<Attachment>('attachments', id);
 
 export async function removeAttachments(ids: string[]) {
+  if (!ids.length) return;
+  await delMany('attachments', ids);
   for (const id of ids) {
-    await del('attachments', id);
     const u = urlCache.get(id);
     if (u) URL.revokeObjectURL(u);
     urlCache.delete(id);
   }
+}
+
+/**
+ * Фото, которые добавили в форму, но форму не сохранили (или убрали фото до сохранения), остаются в базе
+ * и попадают в резервные копии. Раз в день удаляем такие «потерянные» файлы старше двух суток.
+ */
+export async function cleanupAttachments(minAge = 2 * 24 * 3600 * 1000): Promise<number> {
+  const used = new Set<string>();
+  for (const s of ['fuel', 'services', 'documents', 'fines', 'tires'] as const) {
+    for (const r of await getAll<{ attachments?: string[] }>(s)) for (const id of r.attachments || []) used.add(id);
+  }
+  const before = Date.now() - minAge;
+  return sweep<Attachment>('attachments', (a) => !used.has(a.id) && (a.createdAt || 0) < before);
 }
 
 const urlCache = new Map<string, string>();

@@ -16,10 +16,15 @@ import { FUEL_CHAINS, chainOf, fuelBase, fuelOptions, fuelTag, sameFuelIn } from
 import { TopBar } from '../ui/CarSwitch';
 import { Button, Card, Chips, Empty, Field, IconButton, Input, NumInput, Page, Row, Section, Segmented, Stat, TextArea, Toggle, confirmDialog, go, toast } from '../ui/kit';
 
+const PAGE = 60;
+
 export function FuelList() {
   const { car } = useApp();
   const list = useQuery(() => (car ? getAll<FuelEntry>('fuel').then((l) => l.filter((f) => f.carId === car.id)) : Promise.resolve([])), [car?.id], ['fuel']);
   const [period, setPeriod] = useState<'month' | 'year' | 'all'>('month');
+  // длинная история рисуется частями: сначала последние заправки, остальное — по кнопке
+  const [limit, setLimit] = useState(PAGE);
+  useEffect(() => setLimit(PAGE), [car?.id]);
   if (!car) return null;
   const entries = (list || []).sort((a, b) => b.date - a.date);
   const cons = consumption(entries);
@@ -38,6 +43,15 @@ export function FuelList() {
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k)!.push(e);
   }
+  // месяцы целиком, пока не наберётся limit записей
+  const shown: [string, FuelEntry[]][] = [];
+  let count = 0;
+  for (const g of groups) {
+    if (count >= limit) break;
+    shown.push(g);
+    count += g[1].length;
+  }
+  const hidden = entries.length - count;
 
   return (
     <div className="screen">
@@ -81,7 +95,7 @@ export function FuelList() {
           action={<Button variant="primary" onClick={() => go('#/fuel/new')}>Добавить заправку</Button>}
         />
       ) : (
-        Array.from(groups.entries()).map(([title, items]) => (
+        shown.map(([title, items]) => (
           <Section key={title} title={title} action={<span className="muted num">{money(items.reduce((a, e) => a + e.total, 0))}</span>}>
             <div className="list">
               {items.map((e) => (
@@ -108,6 +122,11 @@ export function FuelList() {
             </div>
           </Section>
         ))
+      )}
+      {hidden > 0 && (
+        <Button block onClick={() => setLimit((l) => l + PAGE * 2)}>
+          Показать ещё ({hidden})
+        </Button>
       )}
     </div>
   );

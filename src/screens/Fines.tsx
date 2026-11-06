@@ -382,6 +382,9 @@ export function FineForm({ id, paste }: { id?: string; paste?: boolean }) {
   const save = async () => {
     const amount = parseNum(f.amount);
     if (!amount) return toast('Укажите сумму штрафа', 'danger');
+    // без даты не посчитать ни скидку 50%, ни срок оплаты
+    if (!f.resolutionDate && !f.violationDate && (orig?.status ?? 'unpaid') === 'unpaid')
+      return toast('Укажите дату постановления — от неё считаются скидка 50% и срок оплаты', 'danger');
     const fine: Fine = stamp(
       {
         ...(orig || { id: uid(), createdAt: Date.now(), status: 'unpaid' as const, source: paste ? 'paste' : 'manual' }),

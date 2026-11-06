@@ -5,7 +5,7 @@ import { buildReminders, currentMileage, docMeta, effectiveExpiry, fineInfo, nex
 import type { Car, DocEntry, Fine, FuelEntry, ServiceEntry, TireSet } from '../data/types';
 import { mountedSet } from '../data/tires';
 import type { PlanOverrides } from '../data/maintenance';
-import { DAY, dateShort, money, pad } from './format';
+import { DAY, dateShort, daysWord, money, pad } from './format';
 import { call, exportFile, isIOS, isNative, listen } from './native';
 
 export interface Deadline {
@@ -160,7 +160,7 @@ export async function refreshReminders() {
         list.push({
           id: hashId(`${d.key}:${off}`),
           title: d.title,
-          body: off ? `${d.body} (через ${off} дн.)` : d.body,
+          body: off ? `${d.body} (через ${daysWord(off)})` : d.body,
           schedule: { at: new Date(when), allowWhileIdle: true },
           extra: { route: d.route },
           smallIcon: 'ic_stat_myauto',

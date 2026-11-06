@@ -57,6 +57,11 @@ async function store(name: StoreName, mode: IDBTransactionMode = 'readonly') {
   return db.transaction(name, mode).objectStore(name);
 }
 
+// --- кеш чтения ---
+// Экраны читают одни и те же хранилища целиком; держим последний результат в памяти до первого изменения.
+// Фото (attachments) не кешируются — это большие файлы.
+const cache = new Map<StoreName, Promise<any[]>>();
+
 // --- события изменений ---
 type Listener = (store: StoreName) => void;
 const listeners = new Set<Listener>();
@@ -66,7 +71,10 @@ export function onChange(fn: Listener) {
 }
 let pending = new Set<StoreName>();
 let scheduled = false;
-export function emit(name: StoreName) {
+// другие вкладки с приложением (веб-версия) узнают об изменениях и перечитывают данные
+const channel: BroadcastChannel | null = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('myauto-db') : null;
+function notify(name: StoreName) {
+  cache.delete(name);
   pending.add(name);
   if (scheduled) return;
   scheduled = true;
@@ -77,10 +85,27 @@ export function emit(name: StoreName) {
     names.forEach((n) => listeners.forEach((l) => l(n)));
   });
 }
+export function emit(name: StoreName) {
+  notify(name);
+  try {
+    channel?.postMessage(name);
+  } catch {
+    /* вкладка закрывается */
+  }
+}
+if (channel) channel.onmessage = (e) => notify(e.data as StoreName);
 
 // --- CRUD ---
 export async function getAll<T>(name: StoreName): Promise<T[]> {
-  return wrap((await store(name)).getAll()) as Promise<T[]>;
+  if (name === 'attachments') return wrap((await store(name)).getAll()) as Promise<T[]>;
+  let p = cache.get(name);
+  if (!p) {
+    p = store(name).then((s) => wrap(s.getAll()));
+    cache.set(name, p);
+    p.catch(() => cache.get(name) === p && cache.delete(name));
+  }
+  // копия массива: вызывающий может сортировать его на месте
+  return (await p).slice() as T[];
 }
 
 export async function getByIndex<T>(name: StoreName, index: string, value: any): Promise<T[]> {
@@ -115,6 +140,66 @@ export async function putMany<T>(name: StoreName, values: T[]): Promise<void> {
 export async function del(name: StoreName, id: string): Promise<void> {
   await wrap((await store(name, 'readwrite')).delete(id));
   emit(name);
+}
+
+/** Удалить несколько записей одной транзакцией. */
+export async function delMany(name: StoreName, ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const db = await openDB();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(name, 'readwrite');
+    const os = tx.objectStore(name);
+    ids.forEach((id) => os.delete(id));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+  emit(name);
+}
+
+/**
+ * Записать данные во все хранилища одной транзакцией: либо всё, либо ничего
+ * (восстановление из копии не оставит базу полупустой, если что-то пойдёт не так).
+ */
+export async function writeAll(data: Partial<Record<StoreName, any[]>>, replace: boolean): Promise<void> {
+  const names = (Object.keys(data) as StoreName[]).filter((n) => ALL_STORES.includes(n));
+  if (!names.length) return;
+  const db = await openDB();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(names, 'readwrite');
+    for (const n of names) {
+      const os = tx.objectStore(n);
+      if (replace) os.clear();
+      for (const v of data[n] || []) os.put(v);
+    }
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error('Запись прервана'));
+  });
+  names.forEach(emit);
+}
+
+/** Пройти по хранилищу и удалить записи, для которых drop() вернул true. Возвращает число удалённых. */
+export async function sweep<T>(name: StoreName, drop: (row: T) => boolean): Promise<number> {
+  const db = await openDB();
+  let n = 0;
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(name, 'readwrite');
+    const req = tx.objectStore(name).openCursor();
+    req.onsuccess = () => {
+      const c = req.result;
+      if (!c) return;
+      if (drop(c.value as T)) {
+        c.delete();
+        n++;
+      }
+      c.continue();
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  if (n) emit(name);
+  return n;
 }
 
 export async function clear(name: StoreName): Promise<void> {
